@@ -1,6 +1,8 @@
 >>>malloy
 source: EV is duckdb.table('EVData.parquet')extend{
+    rename: VIN is `VIN (1-10)`
     measure: total is count()
+    measure: uniquetotal is count(VIN)
 }
 >>>malloy
 run: EV -> {
@@ -19,5 +21,6 @@ aggregate: total
 nest: model is{
 group_by:Model
 aggregate: total
+aggregate:uniquetotal
 }
 }
