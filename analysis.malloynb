@@ -1,0 +1,23 @@
+>>>malloy
+source: EV is duckdb.table('EVData.parquet')extend{
+    measure: total is count()
+}
+>>>malloy
+run: EV -> {
+group_by: Make
+aggregate: total
+}
+>>>malloy
+run: EV -> {
+group_by: Model
+aggregate: total
+}
+>>>malloy
+run: EV -> {
+group_by: Make
+aggregate: total
+nest: model is{
+group_by:Model
+aggregate: total
+}
+}
