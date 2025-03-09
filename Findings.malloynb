@@ -1,0 +1,40 @@
+>>>malloy
+source: EV is duckdb.table('EVData.parquet')extend{
+    rename: VIN is `VIN (1-10)`
+    measure: total is count()
+    measure: uniquetotal is count(VIN)
+    measure: newtotal is count(){where: `New or Used Vehicle` = "New"}
+    dimension: Tdate is strptime!(`Transaction Date`, '%B %d %Y')::date
+}
+>>>markdown
+The below graphic shows the increasing EV registration rates for new vehicles over most years besides 2015 and 2019.
+>>>malloy
+
+
+--# line_chart
+run: EV ->{
+    where: Tdate.year <@2025
+    group_by:`Year` is Tdate.year
+    aggregate: `New EV registrations` is newtotal
+    order_by: `Year`
+    calculate: `Year to year new EV registrations increase (%)` is ((newtotal-lag(newtotal))/lag(newtotal))*100
+    --group_by: Make
+    --limit:5
+    --order_by: `Year` desc
+}
+>>>markdown
+The below graphics shows that most Makers are seeing similar trajectories on the increase of WA new EV registrations. 
+>>>malloy
+run: EV ->{
+    where: Tdate.year > @2020
+    group_by:Make
+    aggregate: `New Sales Total` is newtotal
+    order_by: `New Sales Total` desc
+    limit: 10
+    # line_chart
+    nest: `Per Year` is{
+        group_by:`Year` is Tdate.year
+        calculate: yoyChange is newtotal/lag(newtotal)
+    }
+}
+>>>malloy

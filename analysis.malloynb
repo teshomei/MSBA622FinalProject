@@ -1,8 +1,158 @@
 >>>malloy
 source: EV is duckdb.table('EVData.parquet')extend{
     rename: VIN is `VIN (1-10)`
+    rename: ID is `DOL Vehicle ID`
     measure: total is count()
     measure: uniquetotal is count(VIN)
+    measure: newtotal is count(){where: `New or Used Vehicle` = "New"}
+    dimension: Tdate is strptime!(`Transaction Date`, '%B %d %Y')::date
+}
+>>>markdown
+How long are Washingtonians keeping new EVs?
+>>>malloy
+run:EV ->{
+    where: `Transaction Type` !~ "%Replacement"
+    where: `Transaction Type` !~ "%Renewal"
+    where: `Transaction Type` !~ "%Temporary%"
+    where: `Transaction Type` !~ "%at time%"
+    group_by:ID
+    aggregate: `Sale Occurences` is count(Tdate)
+    nest: sales is{
+        select:`New or Used Vehicle`
+        select: Tdate
+        select: `Odometer Reading`
+        select: `Transaction Type`
+        select: `Sale Price`
+        order_by: Tdate asc
+    }->{
+        group_by:ID
+        calculate:  `time between sales` is days(sales.Tdate to lag(sales.Tdate)
+    }
+}
+>>>malloy
+run: EV ->{
+    aggregate: rows is count()
+    aggregate: GEOIDRows is count(`2020 GEOID`)
+    aggregate: vins is count(VIN)
+    aggregate: ID is count(ID)
+}
+>>>malloy
+run: EV ->{
+    aggregate:newtotal
+}
+>>>malloy
+run:EV ->{
+    group_by: ID
+    aggregate:registrations is count()
+}
+>>>malloy
+run : EV ->{
+    where:`Base MSRP` > 0
+    aggregate: totalreg is count()
+    aggregate:  avgnewMSRP is avg(`Base MSRP`){where:`New or Used Vehicle` = "New"}
+    aggregate:  avgusedMSRP is avg(`Base MSRP`){where:`New or Used Vehicle` = "Used"}
+}
+>>>markdown
+While Tesla's total sales maintained higher than all other Makers, did their rates increase or decrease?
+>>>malloy
+
+
+--# line_chart
+run: EV ->{
+    where: Tdate.year > @2015
+    where: Tdate.year <@2025
+    group_by:`Year` is Tdate.year
+    order_by: `Year`
+    calculate: `Year to year new EV registrations increase (%)` is ((newtotal-lag(newtotal))/lag(newtotal))*100
+    --group_by: Make
+    --limit:5
+    --order_by: `Year` desc
+}
+>>>malloy
+run: EV ->{
+    where: Tdate.year > @2020
+    group_by:Make
+    aggregate: `New Sales Total` is newtotal
+    order_by: `New Sales Total` desc
+    limit: 10
+    # line_chart
+    nest: `Per Year` is{
+        group_by:`Year` is Tdate.year
+        calculate: yoyChange is newtotal/lag(newtotal)
+    }
+}
+>>>markdown
+The above query shows that across all Makes, new registrations rates are increasing significantly most years besides during COVID.
+>>>malloy
+run: EV ->{
+    where: Tdate.year > @2019
+    where:Tdate.year < @2025
+    group_by:Make
+    aggregate: `New Sales Total` is newtotal
+    calculate: `Avg Yearly Change` is newtotal/lag(newtotal)
+    --order_by: `New Sales Total` desc
+    limit: 10
+        nest: `Per Year` is{
+        group_by:`Year` is Tdate.year
+        group_by:Make
+        calculate: yoyChange is newtotal/lag(newtotal)
+        order_by: `Year` asc
+        }
+        nest: AvgChange is{
+        group_by:`Year` is Tdate.year
+        group_by:Make
+        calculate: yoyChange is newtotal/lag(newtotal)
+        order_by: `Year` asc
+    }->{
+        group_by:Make
+        aggregate: avgChange is avg(yoyChange)
+    
+    }
+}
+>>>markdown
+Let's see if Tesla's headstart is still working to their advantage by narrowing the scope.
+>>>malloy
+run: EV ->{
+    where: Tdate.year > @2020
+    group_by:Make
+    aggregate: `New Sales Total` is newtotal
+    order_by: `New Sales Total` desc
+    limit: 10
+    # line_chart
+    nest: `Per Year` is{
+        group_by:`Year` is Tdate.year
+        aggregate: newtotal
+    }
+}
+>>>markdown
+Below shows the massive headstart that Tesla has on other Makers.
+>>>malloy
+run: EV ->{
+    group_by:Make
+    aggregate: `New Sales Total` is newtotal
+    order_by: `New Sales Total` desc
+    limit: 10
+    # line_chart{y.independent} size = spark
+    nest: `Per Year` is{
+        group_by:`Year` is Tdate.year
+        aggregate: newtotal
+    }
+}
+>>>malloy
+run: EV ->{
+    group_by:`Year` is Tdate.year
+    aggregate: `New Sales` is newtotal
+    nest: `by Make` is{
+        group_by:Make
+        aggregate: newtotal
+    }
+}
+>>>malloy
+# line_chart
+run: EV -> {
+    group_by: Make
+    aggregate: newtotal is count(){where: `New or Used Vehicle` = "New"}
+    limit: 10
 }
 >>>malloy
 run: EV -> {
@@ -18,9 +168,25 @@ aggregate: total
 run: EV -> {
 group_by: Make
 aggregate: total
+aggregate: uniquetotal
 nest: model is{
 group_by:Model
 aggregate: total
 aggregate:uniquetotal
 }
+}
+>>>malloy
+run: EV -> {
+    group_by:VIN
+    aggregate: vintotal is count(VIN)
+}
+>>>markdown
+The above information confirms the VIN column does not include unique identification of vehicles
+>>>malloy
+run: EV ->{
+    group_by:Make
+    aggregate: total
+    aggregate: newtotal is count(){where: `New or Used Vehicle` = "New"}
+    aggregate: usedtotal is count(){where: `New or Used Vehicle` = "Used"}
+    --aggregate: total{where: `New or Used Vehicle` = "New"}
 }
