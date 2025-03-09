@@ -1,4 +1,10 @@
-# FinalProject
+# Electric Vehicle Registration in Washington State
+## This is an analysis of data provided by Washington State (data.wa.gov) that includes vehicle registrations for electric vehicles dating back to 2010.
+
+## Analysis has been completed using Malloy, A modern open source language for analyzing, transforming, and modeling data. Further analyis can be complete via github by following the instructions at the end of this document.
+
+## Motivation
+
 
 
  
